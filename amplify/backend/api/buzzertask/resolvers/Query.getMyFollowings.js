@@ -5,7 +5,6 @@ import { util } from "@aws-appsync/utils";
 
 export function request(ctx) {
   const callerId = ctx.identity.sub;
-  ctx.stash.userIdField = "targetId";
 
   return {
     operation: "Query",

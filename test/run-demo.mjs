@@ -19,7 +19,6 @@
 import {
   CognitoIdentityProviderClient,
   SignUpCommand,
-  ConfirmSignUpCommand,
   InitiateAuthCommand,
   AdminConfirmSignUpCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
