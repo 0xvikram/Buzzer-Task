@@ -60,10 +60,10 @@ async function main() {
     }
   };
 
-  const f1 = await createFn("RequestFollowDDB", "FollowsTable", "amplify/backend/api/BuzzerAPI/resolvers/Mutation.requestFollow.js");
-  const f2 = await createFn("RequestFollowSQS", "SQSQueue", "amplify/backend/api/BuzzerAPI/resolvers/Mutation.requestFollow.SQS.js");
-  const f3 = await createFn("AcceptFollowDDB", "FollowsTable", "amplify/backend/api/BuzzerAPI/resolvers/Mutation.acceptFollowRequest.js");
-  const f4 = await createFn("AcceptFollowSQS", "SQSQueue", "amplify/backend/api/BuzzerAPI/resolvers/Mutation.acceptFollowRequest.SQS.js");
+  const f1 = await createFn("RequestFollowDDB", "FollowsTable", "amplify/backend/api/buzzertask/resolvers/Mutation.requestFollow.js");
+  const f2 = await createFn("RequestFollowSQS", "SQSQueue", "amplify/backend/api/buzzertask/resolvers/Mutation.requestFollow.SQS.js");
+  const f3 = await createFn("AcceptFollowDDB", "FollowsTable", "amplify/backend/api/buzzertask/resolvers/Mutation.acceptFollowRequest.js");
+  const f4 = await createFn("AcceptFollowSQS", "SQSQueue", "amplify/backend/api/buzzertask/resolvers/Mutation.acceptFollowRequest.SQS.js");
 
   console.log("Creating Unit Resolvers...");
   const createRes = async (type, field, ds, path) => {
@@ -87,12 +87,12 @@ async function main() {
     }
   };
 
-  await createRes("Query", "getMyFollowers", "FollowsTable", "amplify/backend/api/BuzzerAPI/resolvers/Query.getMyFollowers.js");
-  await createRes("Query", "getMyFollowings", "FollowsTable", "amplify/backend/api/BuzzerAPI/resolvers/Query.getMyFollowings.js");
-  await createRes("Subscription", "onFollowAccepted", "NoneDS", "amplify/backend/api/BuzzerAPI/resolvers/Subscription.onFollowAccepted.js");
-  await createRes("Subscription", "onNotification", "NoneDS", "amplify/backend/api/BuzzerAPI/resolvers/Subscription.onNotification.js");
-  await createRes("Mutation", "createNotificationInternal", "NotificationsTable", "amplify/backend/api/BuzzerAPI/resolvers/Mutation.createNotificationInternal.js");
-  await createRes("UserFollowEdge", "user", "UsersTable", "amplify/backend/api/BuzzerAPI/resolvers/UserFollowEdge.user.js");
+  await createRes("Query", "getMyFollowers", "FollowsTable", "amplify/backend/api/buzzertask/resolvers/Query.getMyFollowers.js");
+  await createRes("Query", "getMyFollowings", "FollowsTable", "amplify/backend/api/buzzertask/resolvers/Query.getMyFollowings.js");
+  await createRes("Subscription", "onFollowAccepted", "NoneDS", "amplify/backend/api/buzzertask/resolvers/Subscription.onFollowAccepted.js");
+  await createRes("Subscription", "onNotification", "NoneDS", "amplify/backend/api/buzzertask/resolvers/Subscription.onNotification.js");
+  await createRes("Mutation", "createNotificationInternal", "NotificationsTable", "amplify/backend/api/buzzertask/resolvers/Mutation.createNotificationInternal.js");
+  await createRes("UserFollowEdge", "user", "UsersTable", "amplify/backend/api/buzzertask/resolvers/UserFollowEdge.user.js");
 
   console.log("Creating Pipeline Resolvers...");
   const createPipe = async (field, functions) => {

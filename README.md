@@ -52,6 +52,10 @@ cd Buzzer-Task
 amplify push --allow-destructive-graphql-schema-updates
 ```
 
+If Amplify reports that it will delete model tables (for example `UserTable`), this
+flag is required to proceed. If that table still contains data you need, export or
+back it up before running the command.
+
 The project now relies on:
 
 - `amplify/backend/auth/buzzertaskcc0bb83c/overrides.ts`
@@ -64,6 +68,18 @@ Those files create the custom Cognito trigger, DynamoDB tables, SQS queue, Lambd
 Run the end-to-end demo:
 
 ```bash
+node test/run-demo.mjs
+```
+
+The demo script resolves config in this order:
+
+1. Environment variables (`USER_POOL_ID`, `CLIENT_ID`, `APPSYNC_ENDPOINT`, `AWS_REGION`)
+2. `ui/amplifyconfiguration.json` generated after a successful `amplify push`
+
+So a normal flow is:
+
+```bash
+amplify push --allow-destructive-graphql-schema-updates
 node test/run-demo.mjs
 ```
 

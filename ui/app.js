@@ -6,8 +6,8 @@ import {
   signIn,
   signOut,
   signUp,
-} from "https://esm.sh/aws-amplify/auth@6";
-import { generateClient } from "https://esm.sh/aws-amplify/api@6";
+} from "https://esm.sh/aws-amplify@6/auth";
+import { generateClient } from "https://esm.sh/aws-amplify@6/api";
 import awsExports from "./aws-exports.js";
 
 Amplify.configure({
@@ -345,7 +345,6 @@ export function initAuthPage() {
         options: {
           userAttributes: {
             email: $("signup-email").value.trim(),
-            preferred_username: $("signup-username").value.trim(),
           },
         },
       });

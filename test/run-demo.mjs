@@ -23,12 +23,59 @@ import {
   InitiateAuthCommand,
   AdminConfirmSignUpCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
+import { readFile } from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
 
-// ── Config (from amplify push output) ────────────────────────────────────────
-const USER_POOL_ID     = "ap-south-1_3esJ1nw2r";
-const CLIENT_ID        = "ddkhkmhft7nl8e40fr93f7mju";
-const APPSYNC_ENDPOINT = "https://t5jf343ra5cl5pfcznlosg2hfa.appsync-api.ap-south-1.amazonaws.com/graphql";
-const REGION           = "ap-south-1";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+async function loadAmplifyUiConfig() {
+  const cfgPath = path.resolve(__dirname, "../ui/amplifyconfiguration.json");
+  const raw = await readFile(cfgPath, "utf8");
+  return JSON.parse(raw);
+}
+
+async function resolveRuntimeConfig() {
+  let uiConfig = null;
+  try {
+    uiConfig = await loadAmplifyUiConfig();
+  } catch {
+    // Allow env-only configuration when UI artifacts are not present.
+  }
+
+  const USER_POOL_ID = process.env.USER_POOL_ID || uiConfig?.aws_user_pools_id;
+  const CLIENT_ID = process.env.CLIENT_ID || uiConfig?.aws_user_pools_web_client_id;
+  const APPSYNC_ENDPOINT =
+    process.env.APPSYNC_ENDPOINT || uiConfig?.aws_appsync_graphqlEndpoint;
+  const REGION =
+    process.env.AWS_REGION ||
+    uiConfig?.aws_project_region ||
+    uiConfig?.aws_cognito_region ||
+    uiConfig?.aws_appsync_region;
+
+  const missing = [];
+  if (!USER_POOL_ID) missing.push("USER_POOL_ID / aws_user_pools_id");
+  if (!CLIENT_ID) missing.push("CLIENT_ID / aws_user_pools_web_client_id");
+  if (!APPSYNC_ENDPOINT)
+    missing.push("APPSYNC_ENDPOINT / aws_appsync_graphqlEndpoint");
+  if (!REGION) missing.push("AWS_REGION / aws_project_region");
+
+  if (missing.length) {
+    throw new Error(
+      [
+        "Missing runtime config for demo test:",
+        ...missing.map((m) => `  - ${m}`),
+        "",
+        "Provide env vars or ensure ui/amplifyconfiguration.json exists after amplify push.",
+      ].join("\n")
+    );
+  }
+
+  return { USER_POOL_ID, CLIENT_ID, APPSYNC_ENDPOINT, REGION };
+}
+
+const { USER_POOL_ID, CLIENT_ID, APPSYNC_ENDPOINT, REGION } = await resolveRuntimeConfig();
 
 const cognitoClient = new CognitoIdentityProviderClient({ region: REGION });
 
