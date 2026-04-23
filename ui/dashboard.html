@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Buzzer</title>
+  <meta name="description" content="Your Buzzer social dashboard — manage follow requests, view followers and followings, and track real-time notifications." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ── Navbar ─────────────────────────────────────────────────────────────── -->
+<nav class="navbar">
+  <div class="container navbar-inner">
+    <a href="./index.html" class="logo">
+      <div class="logo-icon">⚡</div>
+      <span class="logo-text">buz<span>zer</span></span>
+    </a>
+
+    <div class="nav-links">
+      <a href="./dashboard.html" class="nav-link active">Dashboard</a>
+      <a href="./profile.html" class="nav-link">Profile</a>
+    </div>
+
+    <div class="nav-actions flex gap-2 items-center">
+      <!-- Notification bell -->
+      <div class="notif-btn" id="notif-btn" title="Notifications">
+        🔔
+        <div class="notif-count" id="notif-count" style="display:none;">0</div>
+      </div>
+
+      <!-- Avatar -->
+      <div class="avatar" id="nav-avatar" style="cursor:pointer;" onclick="window.location='./profile.html'">U</div>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Page ───────────────────────────────────────────────────────────────── -->
+<main class="page">
+  <div class="container">
+
+    <!-- Stats Strip -->
+    <div class="stats-strip mb-4">
+      <div class="stat-item">
+        <div class="stat-value gradient-text" id="stat-followers">—</div>
+        <div class="stat-label">Followers</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value gradient-text" id="stat-following">—</div>
+        <div class="stat-label">Following</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="stat-notifs" style="color:var(--primary);">—</div>
+        <div class="stat-label">Notifications</div>
+      </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid-2" style="align-items: start;">
+
+      <!-- Left: Follow Panel -->
+      <div>
+        <!-- Send Follow Request -->
+        <div class="card mb-4">
+          <h3 class="mb-4">Send Follow Request</h3>
+          <div class="form-group">
+            <label class="input-label" for="target-id">Target User ID</label>
+            <input class="input" id="target-id" placeholder="Paste user's Cognito sub (id)..." />
+          </div>
+          <button class="btn btn-primary" id="btn-follow" style="width:100%;">
+            ➕ Send Request
+          </button>
+          <div id="follow-result" class="text-sm text-muted mt-2"></div>
+        </div>
+
+        <!-- Pending Requests Received -->
+        <div class="card mb-4">
+          <div class="section-header">
+            <h3>Pending Requests</h3>
+            <span class="badge badge-red" id="pending-count">0</span>
+          </div>
+          <div id="pending-list">
+            <p class="text-muted text-sm">No pending requests.</p>
+          </div>
+        </div>
+
+        <!-- Tabs: Followers / Following -->
+        <div class="card">
+          <div class="tabs">
+            <button class="tab active" id="tab-followers" onclick="switchTab('followers')">Followers</button>
+            <button class="tab" id="tab-followings" onclick="switchTab('followings')">Following</button>
+          </div>
+
+          <div id="panel-followers">
+            <div id="followers-list">
+              <p class="text-muted text-sm">No followers yet.</p>
+            </div>
+          </div>
+
+          <div id="panel-followings" style="display:none;">
+            <div id="followings-list">
+              <p class="text-muted text-sm">Not following anyone yet.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Notifications -->
+      <div>
+        <div class="card" style="position:sticky; top: 88px;">
+          <div class="section-header">
+            <h3>Notifications</h3>
+            <div class="flex gap-2 items-center">
+              <span class="badge badge-red" id="notif-badge-count">0</span>
+              <span class="badge badge-gray">Live ●</span>
+            </div>
+          </div>
+          <div id="notif-list" style="max-height: 520px; overflow-y: auto;">
+            <p class="text-muted text-sm">No notifications yet.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- Toast Container -->
+<div id="toast-container"></div>
+
+<!-- ── App Script ──────────────────────────────────────────────────────────── -->
+<script type="module">
+  import { initDashboard } from "./app.js";
+
+  // ── Tab switching ──────────────────────────────────────────────────────────
+  window.switchTab = (tab) => {
+    document.getElementById("tab-followers").classList.toggle("active", tab === "followers");
+    document.getElementById("tab-followings").classList.toggle("active", tab === "followings");
+    document.getElementById("panel-followers").style.display = tab === "followers" ? "block" : "none";
+    document.getElementById("panel-followings").style.display = tab === "followings" ? "block" : "none";
+  };
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  window.showToast = (title, body, icon = "🔔") => {
+    const el = document.createElement("div");
+    el.className = "toast";
+    el.innerHTML = `
+      <div class="toast-icon">${icon}</div>
+      <div><div class="toast-title">${title}</div><div class="toast-body">${body}</div></div>
+    `;
+    document.getElementById("toast-container").appendChild(el);
+    setTimeout(() => el.remove(), 6000);
+  };
+
+  // ── Render helpers ─────────────────────────────────────────────────────────
+  window.renderUserRow = ({ id, username, displayName }, actionHtml = "") => `
+    <div class="user-row">
+      <div class="avatar">${(displayName || username || "?")[0].toUpperCase()}</div>
+      <div class="user-row-info">
+        <div class="user-row-name">${displayName || username || "Unknown"}</div>
+        <div class="user-row-handle text-muted text-sm">@${username || id?.slice(0,8)}</div>
+      </div>
+      ${actionHtml}
+    </div>
+  `;
+
+  window.renderNotif = ({ type, senderId, createdAt }) => {
+    const icons = {
+      FOLLOW_REQUEST_RECEIVED: "👤",
+      FOLLOW_REQUEST_ACCEPTED: "✅",
+    };
+    const labels = {
+      FOLLOW_REQUEST_RECEIVED: "sent you a follow request",
+      FOLLOW_REQUEST_ACCEPTED: "accepted your follow request",
+    };
+    return `
+      <div class="user-row">
+        <div style="font-size:22px; flex-shrink:0;">${icons[type] || "🔔"}</div>
+        <div class="user-row-info">
+          <div class="user-row-name text-sm"><strong>${senderId?.slice(0,8)}...</strong> ${labels[type] || type}</div>
+          <div class="user-row-handle text-muted text-xs">${new Date(createdAt).toLocaleString()}</div>
+        </div>
+      </div>
+    `;
+  };
+
+  // ── Boot ───────────────────────────────────────────────────────────────────
+  initDashboard();
+</script>
+
+</body>
+</html>

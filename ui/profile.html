@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile | Buzzer</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container navbar-inner">
+      <a href="./index.html" class="logo">
+        <div class="logo-icon">B</div>
+        <span class="logo-text">buz<span>zer</span></span>
+      </a>
+      <div class="nav-links">
+        <a href="./dashboard.html" class="nav-link">Dashboard</a>
+        <a href="./profile.html" class="nav-link active">Profile</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="page">
+    <div class="container-sm">
+      <div class="card">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="avatar avatar-lg" id="profile-avatar">U</div>
+          <div>
+            <h2 id="profile-name">Profile</h2>
+            <div class="text-muted" id="profile-handle">Loading...</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="input-label">User ID</label>
+          <input class="input" id="profile-id" readonly />
+        </div>
+        <div class="form-group">
+          <label class="input-label">Email</label>
+          <input class="input" id="profile-email" readonly />
+        </div>
+        <button class="btn btn-ghost" id="btn-signout" type="button" style="width:100%;">Sign out</button>
+        <p class="text-sm text-muted mt-3" id="profile-status"></p>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { initProfilePage } from "./app.js";
+    initProfilePage();
+  </script>
+</body>
+</html>

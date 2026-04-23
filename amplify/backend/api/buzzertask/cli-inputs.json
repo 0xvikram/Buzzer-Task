@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "serviceConfiguration": {
+    "apiName": "buzzertask",
+    "serviceName": "AppSync",
+    "defaultAuthType": {
+      "mode": "AMAZON_COGNITO_USER_POOLS",
+      "cognitoUserPoolId": "authbuzzertaskcc0bb83c"
+    },
+    "conflictResolution": {},
+    "additionalAuthTypes": [
+      {
+        "mode": "AWS_IAM"
+      }
+    ]
+  }
+}

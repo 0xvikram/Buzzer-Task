@@ -1,0 +1,82 @@
+type User {
+  id: ID!
+  username: String!
+  email: AWSEmail!
+  displayName: String
+  avatarUrl: AWSURL
+  createdAt: AWSDateTime!
+}
+
+enum FollowStatus {
+  PENDING
+  ACCEPTED
+}
+
+type Follow {
+  requesterId: ID!
+  targetId: ID!
+  status: FollowStatus!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+enum NotificationType {
+  FOLLOW_REQUEST_RECEIVED
+  FOLLOW_REQUEST_ACCEPTED
+}
+
+type Notification {
+  id: ID!
+  recipientId: ID!
+  senderId: ID!
+  type: NotificationType!
+  read: Boolean!
+  createdAt: AWSDateTime!
+}
+
+type UserFollowEdge {
+  user: User
+  followedAt: AWSDateTime!
+  status: FollowStatus!
+}
+
+type FollowConnection {
+  items: [UserFollowEdge!]!
+  nextToken: String
+}
+
+type NotificationConnection {
+  items: [Notification!]!
+  nextToken: String
+}
+
+type Query {
+  getMyProfile: User @aws_cognito_user_pools
+  getMyFollowers(limit: Int, nextToken: String): FollowConnection @aws_cognito_user_pools
+  getMyFollowings(limit: Int, nextToken: String): FollowConnection @aws_cognito_user_pools
+  getMyPendingFollowRequests(limit: Int, nextToken: String): FollowConnection @aws_cognito_user_pools
+  getMyNotifications(limit: Int, nextToken: String): NotificationConnection @aws_cognito_user_pools
+}
+
+type Mutation {
+  requestFollow(targetUserId: ID!): Follow @aws_cognito_user_pools
+  acceptFollowRequest(requesterId: ID!): Follow @aws_cognito_user_pools
+  createNotificationInternal(input: CreateNotificationInput!): Notification @aws_iam
+}
+
+input CreateNotificationInput {
+  id: ID!
+  recipientId: ID!
+  senderId: ID!
+  type: NotificationType!
+}
+
+type Subscription {
+  onFollowAccepted(requesterId: ID!): Follow
+    @aws_subscribe(mutations: ["acceptFollowRequest"])
+    @aws_cognito_user_pools
+
+  onNotification(recipientId: ID!): Notification
+    @aws_subscribe(mutations: ["createNotificationInternal"])
+    @aws_cognito_user_pools
+}

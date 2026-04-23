@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Buzzer — Connect. Follow. Buzz.</title>
+  <meta name="description" content="Buzzer is a real-time social platform with follow requests, live notifications, and instant updates powered by AWS AppSync." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ── Navbar ────────────────────────────────────────────────────────────── -->
+<nav class="navbar">
+  <div class="container navbar-inner">
+    <a href="./index.html" class="logo">
+      <div class="logo-icon">⚡</div>
+      <span class="logo-text">buz<span>zer</span></span>
+    </a>
+    <div class="nav-actions">
+      <a href="./auth.html" class="btn btn-ghost btn-sm" id="nav-login">Log In</a>
+      <a href="./auth.html?mode=signup" class="btn btn-primary btn-sm" id="nav-signup">Get Started</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Hero ──────────────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-bg"></div>
+
+  <div class="hero-badge">
+    ⚡ Real-time social graph on AWS AppSync
+  </div>
+
+  <h1>
+    Follow. Connect.<br />
+    <span class="gradient-text">Buzz in real time.</span>
+  </h1>
+
+  <p class="hero-sub">
+    Send follow requests, get instant notifications, and see live updates the
+    moment someone connects with you — powered by GraphQL subscriptions.
+  </p>
+
+  <div class="hero-actions">
+    <a href="./auth.html?mode=signup" class="btn btn-primary" id="hero-cta">
+      ⚡ Create your account
+    </a>
+    <a href="./dashboard.html" class="btn btn-ghost" id="hero-demo">
+      View Demo Dashboard →
+    </a>
+  </div>
+</section>
+
+<!-- ── Feature Grid ───────────────────────────────────────────────────────── -->
+<section style="padding: 80px 0;">
+  <div class="container">
+    <div class="grid-2" style="gap: 20px; grid-template-columns: repeat(3, 1fr);">
+
+      <div class="card">
+        <div style="font-size:28px; margin-bottom:16px;">🔔</div>
+        <h3>Live Notifications</h3>
+        <p class="text-muted mt-2 text-sm">
+          Real-time GraphQL subscriptions push follow events and notifications the instant they happen.
+        </p>
+      </div>
+
+      <div class="card">
+        <div style="font-size:28px; margin-bottom:16px;">🔐</div>
+        <h3>Secure by Design</h3>
+        <p class="text-muted mt-2 text-sm">
+          Cognito + IAM auth. Subscription filtering enforced server-side — you only receive your own events.
+        </p>
+      </div>
+
+      <div class="card">
+        <div style="font-size:28px; margin-bottom:16px;">⚡</div>
+        <h3>Async Pipelines</h3>
+        <p class="text-muted mt-2 text-sm">
+          Follow actions publish to SQS. A Lambda consumer processes notifications asynchronously — never blocking.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Toast Demo ─────────────────────────────────────────────────────────── -->
+<div id="toast-container"></div>
+
+<script>
+  // Demo toast to show the real-time notification UX
+  function showToast(title, body, icon = "🔔") {
+    const el = document.createElement("div");
+    el.className = "toast";
+    el.innerHTML = `
+      <div class="toast-icon">${icon}</div>
+      <div>
+        <div class="toast-title">${title}</div>
+        <div class="toast-body">${body}</div>
+      </div>
+    `;
+    document.getElementById("toast-container").appendChild(el);
+    setTimeout(() => el.remove(), 5000);
+  }
+
+  // Simulate a real-time notification after 2s for demo effect
+  setTimeout(() => {
+    showToast("New Follow Request", "alice wants to follow you", "👤");
+  }, 2000);
+  setTimeout(() => {
+    showToast("Follow Accepted!", "bob accepted your follow request", "✅");
+  }, 4500);
+</script>
+
+</body>
+</html>

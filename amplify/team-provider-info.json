@@ -1,0 +1,23 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-buzzertask-dev-9cee1-authRole",
+      "UnauthRoleArn": "arn:aws:iam::461780750039:role/amplify-buzzertask-dev-9cee1-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::461780750039:role/amplify-buzzertask-dev-9cee1-authRole",
+      "Region": "ap-south-1",
+      "DeploymentBucketName": "amplify-buzzertask-dev-9cee1-deployment",
+      "UnauthRoleName": "amplify-buzzertask-dev-9cee1-unauthRole",
+      "StackName": "amplify-buzzertask-dev-9cee1",
+      "StackId": "arn:aws:cloudformation:ap-south-1:461780750039:stack/amplify-buzzertask-dev-9cee1/1ebddbf0-3e9e-11f1-b6a2-02c10fa90abb",
+      "AmplifyAppId": "d2rxphizbxz2br"
+    },
+    "categories": {
+      "auth": {
+        "buzzertaskcc0bb83c": {}
+      },
+      "api": {
+        "buzzertask": {}
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "postConfirmationTrigger",
+  "version": "2.0",
+  "description": "Persists new Cognito users to DynamoDB after registration",
+  "amplify": {
+    "function": {
+      "postConfirmationTrigger": {
+        "build": true,
+        "providerPlugin": "awscloudformation",
+        "service": "Lambda"
+      }
+    }
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1035.0",
+    "@aws-sdk/util-dynamodb": "^3.996.2"
+  }
+}

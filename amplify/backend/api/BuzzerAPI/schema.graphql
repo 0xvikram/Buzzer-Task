@@ -1,0 +1,96 @@
+type User @model(subscriptions: null) @auth(rules: [{ allow: private }]) {
+  id: ID!
+  username: String!
+  email: String!
+  displayName: String
+  avatarUrl: String
+  createdAt: AWSDateTime!
+}
+
+enum FollowStatus {
+  PENDING
+  ACCEPTED
+}
+
+
+type Follow {
+  requesterId: ID!
+  targetId: ID!
+  status: FollowStatus!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+enum NotificationType {
+  FOLLOW_REQUEST_RECEIVED
+  FOLLOW_REQUEST_ACCEPTED
+}
+
+type Notification {
+  id: ID!
+  recipientId: ID!
+  senderId: ID!
+  type: NotificationType!
+  read: Boolean!
+  createdAt: AWSDateTime!
+}
+
+type FollowConnection {
+  items: [UserFollowEdge]
+  nextToken: String
+}
+
+type UserFollowEdge {
+  user: User
+  followedAt: AWSDateTime!
+  status: FollowStatus!
+}
+
+#This query is mappped to  Query.getMyFollowers.js and Query.getMyFollowings.js files
+type Query {
+  getMyFollowers(limit: Int, nextToken: String): FollowConnection
+    @aws_cognito_user_pools
+
+  getMyFollowings(limit: Int, nextToken: String): FollowConnection
+    @aws_cognito_user_pools
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Mutations change something in the system
+# ─────────────────────────────────────────────────────────────────────────────
+type Mutation {
+  requestFollow(targetUserId: ID!): Follow
+    @aws_cognito_user_pools
+
+  acceptFollowRequest(requesterId: ID!): Follow
+    @aws_cognito_user_pools
+
+  # IAM-only: called exclusively by the NotificationProcessor Lambda
+  # Clients with Cognito tokens CANNOT call this mutation
+  createNotificationInternal(input: CreateNotificationInput!): Notification
+    @aws_iam
+}
+
+input CreateNotificationInput {
+  id: ID!
+  recipientId: ID!
+  senderId: ID!
+  type: NotificationType!
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Subscriptions listen for events happening in backend”
+# ─────────────────────────────────────────────────────────────────────────────
+type Subscription {
+  # Fires when MY outgoing follow request gets accepted
+  # Resolver enforces: ctx.identity.sub must equal args.requesterId
+  onFollowAccepted(requesterId: ID!): Follow
+    @aws_subscribe(mutations: ["acceptFollowRequest"])
+    @aws_cognito_user_pools
+
+  # Fires when I receive a new notification
+  # Resolver enforces: ctx.identity.sub must equal args.recipientId
+  onNotification(recipientId: ID!): Notification
+    @aws_subscribe(mutations: ["createNotificationInternal"])
+    @aws_cognito_user_pools
+}

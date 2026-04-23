@@ -1,0 +1,159 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Buzzer Task — DynamoDB Tables and SQS Queue for the Social Graph & Notifications API.
+  Deploys in Mumbai (ap-south-1) on AWS Free Tier.
+
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+
+Resources:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # DynamoDB: Users Table
+  # PK: id (Cognito sub)
+  # Written by the postConfirmationTrigger Lambda — never by clients directly
+  # ─────────────────────────────────────────────────────────────────────────────
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "BuzzerUsers-${Env}"
+      BillingMode: PAY_PER_REQUEST  # on-demand — free tier covers first 25 WCU/RCU anyway
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false  # keep free, only enable for prod
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # DynamoDB: Follows Table
+  # PK: requesterId, SK: targetId
+  #
+  # GSI byTarget  — PK: targetId,    SK: status → getMyFollowers query
+  # GSI byRequester — PK: requesterId, SK: status → getMyFollowings query
+  #
+  # Design rationale: Two GSIs give O(n) lookups in both directions.
+  # Without GSIs, both queries would require a full table scan.
+  # ─────────────────────────────────────────────────────────────────────────────
+  FollowsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "BuzzerFollows-${Env}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: requesterId
+          AttributeType: S
+        - AttributeName: targetId
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+      KeySchema:
+        - AttributeName: requesterId
+          KeyType: HASH
+        - AttributeName: targetId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: byTarget
+          KeySchema:
+            - AttributeName: targetId
+              KeyType: HASH
+            - AttributeName: status
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: byRequester
+          KeySchema:
+            - AttributeName: requesterId
+              KeyType: HASH
+            - AttributeName: status
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # DynamoDB: Notifications Table
+  # PK: id (UUID), SK: recipientId
+  #
+  # GSI byRecipient — PK: recipientId, SK: createdAt
+  # → list notifications for a user ordered by time
+  # ─────────────────────────────────────────────────────────────────────────────
+  NotificationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "BuzzerNotifications-${Env}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: recipientId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+        - AttributeName: recipientId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: byRecipient
+          KeySchema:
+            - AttributeName: recipientId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SQS: Dead-Letter Queue
+  # Receives messages that fail processing 3 times in NotificationQueue
+  # ─────────────────────────────────────────────────────────────────────────────
+  NotificationDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "BuzzerNotificationDLQ-${Env}"
+      MessageRetentionPeriod: 604800  # 7 days
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SQS: Notification Queue
+  # AppSync resolvers publish events here via HTTP data source (SigV4 signed).
+  # The notificationProcessor Lambda polls this queue.
+  # ─────────────────────────────────────────────────────────────────────────────
+  NotificationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "BuzzerNotificationQueue-${Env}"
+      VisibilityTimeout: 30       # must be >= Lambda timeout
+      MessageRetentionPeriod: 345600  # 4 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt NotificationDLQ.Arn
+        maxReceiveCount: 3        # 3 failed attempts → DLQ
+
+Outputs:
+  UsersTableName:
+    Value: !Ref UsersTable
+    Export:
+      Name: !Sub "BuzzerUsersTable-${Env}"
+
+  FollowsTableName:
+    Value: !Ref FollowsTable
+    Export:
+      Name: !Sub "BuzzerFollowsTable-${Env}"
+
+  NotificationsTableName:
+    Value: !Ref NotificationsTable
+    Export:
+      Name: !Sub "BuzzerNotificationsTable-${Env}"
+
+  NotificationQueueUrl:
+    Value: !Ref NotificationQueue
+    Export:
+      Name: !Sub "BuzzerNotificationQueueUrl-${Env}"
+
+  NotificationQueueArn:
+    Value: !GetAtt NotificationQueue.Arn
+    Export:
+      Name: !Sub "BuzzerNotificationQueueArn-${Env}"

@@ -1,0 +1,60 @@
+{
+  "api": {
+    "buzzertask": {
+      "dependsOn": [
+        {
+          "attributes": [
+            "UserPoolId"
+          ],
+          "category": "auth",
+          "resourceName": "buzzertaskcc0bb83c"
+        }
+      ],
+      "output": {
+        "authConfig": {
+          "additionalAuthenticationProviders": [
+            {
+              "authenticationType": "AWS_IAM"
+            }
+          ],
+          "defaultAuthentication": {
+            "authenticationType": "AMAZON_COGNITO_USER_POOLS",
+            "userPoolConfig": {
+              "userPoolId": "authbuzzertaskcc0bb83c"
+            }
+          }
+        }
+      },
+      "providerPlugin": "awscloudformation",
+      "service": "AppSync"
+    }
+  },
+  "auth": {
+    "buzzertaskcc0bb83c": {
+      "customAuth": false,
+      "dependsOn": [],
+      "frontendAuthConfig": {
+        "mfaConfiguration": "OFF",
+        "mfaTypes": [
+          "SMS"
+        ],
+        "passwordProtectionSettings": {
+          "passwordPolicyCharacters": [],
+          "passwordPolicyMinLength": 8
+        },
+        "signupAttributes": [
+          "EMAIL"
+        ],
+        "socialProviders": [],
+        "usernameAttributes": [
+          "EMAIL"
+        ],
+        "verificationMechanisms": [
+          "EMAIL"
+        ]
+      },
+      "providerPlugin": "awscloudformation",
+      "service": "Cognito"
+    }
+  }
+}
