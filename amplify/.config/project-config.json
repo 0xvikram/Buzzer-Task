@@ -1,18 +1,17 @@
 {
-  "whyContinueWithGen1": "Prefer not to answer",
+  "providers": [
+    "awscloudformation"
+  ],
   "projectName": "BuzzerTask",
   "version": "3.1",
   "frontend": "javascript",
   "javascript": {
     "framework": "none",
     "config": {
-      "SourceDir": "ui",
-      "DistributionDir": "ui",
+      "SourceDir": "src",
+      "DistributionDir": "dist",
       "BuildCommand": "npm.cmd run-script build",
       "StartCommand": "npm.cmd run-script start"
     }
-  },
-  "providers": [
-    "awscloudformation"
-  ]
+  }
 }

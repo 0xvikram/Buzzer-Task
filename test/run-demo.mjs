@@ -205,8 +205,17 @@ async function main() {
   console.log("  Buzzer Social Graph — Full Flow Demo Test");
   console.log("═══════════════════════════════════════════════════════");
 
-  const userA = { email: "alice@demo.buzzer", password: "Demo@123!", username: "alice" };
-  const userB = { email: "bob@demo.buzzer",   password: "Demo@123!", username: "bob"   };
+  const runId = Date.now();
+  const userA = {
+    email: `alice+${runId}@demo.buzzer`,
+    password: "Demo@123!",
+    username: `alice${runId}`,
+  };
+  const userB = {
+    email: `bob+${runId}@demo.buzzer`,
+    password: "Demo@123!",
+    username: `bob${runId}`,
+  };
 
   // Step 1: Register both users
   log("Step 1", "Registering User A (alice) and User B (bob)...");

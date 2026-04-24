@@ -1,7 +1,7 @@
 import { util } from "@aws-appsync/utils";
 
 export function request(ctx) {
-  const id = ctx.source?.user?.id;
+  const id = ctx.source?.user?.id ?? ctx.source?.requesterId ?? ctx.source?.targetId;
 
   if (!id) {
     return null;

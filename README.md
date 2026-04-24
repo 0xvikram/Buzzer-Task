@@ -5,7 +5,7 @@ Backend for a social app built with AWS Amplify Gen 1, AppSync, Cognito, DynamoD
 ## What is implemented
 
 - Cognito User Pool auth with IAM as secondary AppSync auth mode.
-- Cognito post-confirmation trigger that persists user profiles into `BuzzerUsers-<env>`.
+- Authenticated profile upsert into `BuzzerUsers-<api-id>-<env>` from Cognito claims.
 - Custom follow mutations:
   - `requestFollow`
   - `acceptFollowRequest`
@@ -27,7 +27,7 @@ Backend for a social app built with AWS Amplify Gen 1, AppSync, Cognito, DynamoD
 
 ## Architecture decisions
 
-- Users are stored in a dedicated DynamoDB table created from the auth override. Cognito remains the identity source; DynamoDB is the profile store.
+- Users are stored in a dedicated DynamoDB table created by the API custom stack. Cognito remains the identity source; DynamoDB is the profile store.
 - Follow relationships use a primary key of `requesterId + targetId` plus two GSIs:
   - `byTarget` for followers and pending requests received
   - `byRequester` for followings
@@ -58,10 +58,9 @@ back it up before running the command.
 
 The project now relies on:
 
-- `amplify/backend/auth/buzzertaskcc0bb83c/overrides.ts`
 - `amplify/backend/api/buzzertask/stacks/CustomResources.json`
 
-Those files create the custom Cognito trigger, DynamoDB tables, SQS queue, Lambda consumer, and AppSync resolvers/data sources.
+That custom stack creates the DynamoDB tables, SQS queue, Lambda consumer, and AppSync resolvers/data sources.
 
 ## Test
 

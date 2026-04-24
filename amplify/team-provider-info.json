@@ -1,15 +1,15 @@
 {
   "dev": {
     "awscloudformation": {
-      "AuthRoleName": "amplify-buzzertask-dev-9cee1-authRole",
-      "UnauthRoleArn": "arn:aws:iam::461780750039:role/amplify-buzzertask-dev-9cee1-unauthRole",
-      "AuthRoleArn": "arn:aws:iam::461780750039:role/amplify-buzzertask-dev-9cee1-authRole",
+      "AuthRoleName": "amplify-buzzertask-dev-aaaff-authRole",
+      "UnauthRoleArn": "arn:aws:iam::461780750039:role/amplify-buzzertask-dev-aaaff-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::461780750039:role/amplify-buzzertask-dev-aaaff-authRole",
       "Region": "ap-south-1",
-      "DeploymentBucketName": "amplify-buzzertask-dev-9cee1-deployment",
-      "UnauthRoleName": "amplify-buzzertask-dev-9cee1-unauthRole",
-      "StackName": "amplify-buzzertask-dev-9cee1",
-      "StackId": "arn:aws:cloudformation:ap-south-1:461780750039:stack/amplify-buzzertask-dev-9cee1/1ebddbf0-3e9e-11f1-b6a2-02c10fa90abb",
-      "AmplifyAppId": "d2rxphizbxz2br"
+      "DeploymentBucketName": "amplify-buzzertask-dev-aaaff-deployment",
+      "UnauthRoleName": "amplify-buzzertask-dev-aaaff-unauthRole",
+      "StackName": "amplify-buzzertask-dev-aaaff",
+      "StackId": "arn:aws:cloudformation:ap-south-1:461780750039:stack/amplify-buzzertask-dev-aaaff/afd5c290-3f63-11f1-bd80-0a01f2a47b5f",
+      "AmplifyAppId": "d1wpdkqizq7osa"
     },
     "categories": {
       "auth": {

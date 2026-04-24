@@ -1,25 +1,36 @@
 import { util } from "@aws-appsync/utils";
 
-export function request(ctx) {
+function callerProfile(ctx) {
   const claims = ctx.identity?.claims ?? {};
   const email = claims.email ?? `${ctx.identity.sub}@unknown.local`;
   const username =
     claims.preferred_username ??
     claims["cognito:username"] ??
     email.split("@")[0];
-  const displayName = claims.name ?? username;
+
+  return {
+    id: ctx.identity.sub,
+    email,
+    username,
+    displayName: claims.name ?? username,
+    createdAt: util.time.nowISO8601(),
+  };
+}
+
+export function request(ctx) {
+  const profile = callerProfile(ctx);
 
   return {
     operation: "UpdateItem",
-    key: util.dynamodb.toMapValues({ id: ctx.identity.sub }),
+    key: util.dynamodb.toMapValues({ id: profile.id }),
     update: {
       expression:
         "SET email = if_not_exists(email, :email), username = if_not_exists(username, :username), displayName = if_not_exists(displayName, :displayName), createdAt = if_not_exists(createdAt, :createdAt)",
       expressionValues: util.dynamodb.toMapValues({
-        ":email": email,
-        ":username": username,
-        ":displayName": displayName,
-        ":createdAt": util.time.nowISO8601(),
+        ":email": profile.email,
+        ":username": profile.username,
+        ":displayName": profile.displayName,
+        ":createdAt": profile.createdAt,
       }),
     },
   };
@@ -30,5 +41,5 @@ export function response(ctx) {
     util.error(ctx.error.message, ctx.error.type);
   }
 
-  return ctx.result ?? null;
+  return ctx.prev?.result ?? ctx.result;
 }

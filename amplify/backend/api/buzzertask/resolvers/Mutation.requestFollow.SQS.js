@@ -13,7 +13,8 @@ export function request(ctx) {
 
   return {
     method: "POST",
-    resourcePath: "/",
+    resourcePath:
+      "/461780750039/BuzzerNotificationQueue-llhy545a4fbklhcnrfvt4jjtc4-dev",
     params: {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",

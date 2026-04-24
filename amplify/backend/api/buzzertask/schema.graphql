@@ -1,4 +1,7 @@
+
+#adding a commnet here to redeploy using resolvers
 type User {
+
   id: ID!
   username: String!
   email: AWSEmail!
@@ -25,7 +28,7 @@ enum NotificationType {
   FOLLOW_REQUEST_ACCEPTED
 }
 
-type Notification {
+type Notification @aws_cognito_user_pools @aws_iam {
   id: ID!
   recipientId: ID!
   senderId: ID!

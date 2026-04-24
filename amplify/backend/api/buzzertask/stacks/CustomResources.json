@@ -95,6 +95,21 @@
         ]
       }
     },
+    "UsersTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "TableName": {
+          "Fn::Sub": "BuzzerUsers-${AppSyncApiId}-${env}"
+        },
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          { "AttributeName": "id", "AttributeType": "S" }
+        ],
+        "KeySchema": [
+          { "AttributeName": "id", "KeyType": "HASH" }
+        ]
+      }
+    },
     "NotificationDLQ": {
       "Type": "AWS::SQS::Queue",
       "Properties": {
@@ -228,10 +243,12 @@
                 {
                   "Effect": "Allow",
                   "Action": [
-                    "dynamodb:GetItem"
+                    "dynamodb:GetItem",
+                    "dynamodb:PutItem",
+                    "dynamodb:UpdateItem"
                   ],
                   "Resource": {
-                    "Fn::Sub": "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/BuzzerUsers-${env}"
+                    "Fn::GetAtt": ["UsersTable", "Arn"]
                   }
                 }
               ]
@@ -334,7 +351,7 @@
             "Ref": "AWS::Region"
           },
           "TableName": {
-            "Fn::Sub": "BuzzerUsers-${env}"
+            "Ref": "UsersTable"
           }
         }
       }
@@ -352,7 +369,7 @@
         },
         "HttpConfig": {
           "Endpoint": {
-            "Ref": "NotificationQueue"
+            "Fn::Sub": "https://sqs.${AWS::Region}.amazonaws.com"
           },
           "AuthorizationConfig": {
             "AuthorizationType": "AWS_IAM",
@@ -363,6 +380,18 @@
               "SigningServiceName": "sqs"
             }
           }
+        }
+      }
+    },
+    "UpsertCallerProfileFunction": {
+      "Type": "AWS::AppSync::FunctionConfiguration",
+      "Properties": {
+        "ApiId": { "Ref": "AppSyncApiId" },
+        "Name": "upsertCallerProfile",
+        "DataSourceName": { "Fn::GetAtt": ["UsersTableDataSource", "Name"] },
+        "Runtime": { "Name": "APPSYNC_JS", "RuntimeVersion": "1.0.0" },
+        "CodeS3Location": {
+          "Fn::Sub": "s3://${S3DeploymentBucket}/${S3DeploymentRootKey}/resolvers/User.upsertSelf.js"
         }
       }
     },
@@ -423,6 +452,7 @@
         "Kind": "PIPELINE",
         "PipelineConfig": {
           "Functions": [
+            { "Fn::GetAtt": ["UpsertCallerProfileFunction", "FunctionId"] },
             { "Fn::GetAtt": ["RequestFollowWriteFunction", "FunctionId"] },
             { "Fn::GetAtt": ["RequestFollowPublishFunction", "FunctionId"] }
           ]
@@ -442,6 +472,7 @@
         "Kind": "PIPELINE",
         "PipelineConfig": {
           "Functions": [
+            { "Fn::GetAtt": ["UpsertCallerProfileFunction", "FunctionId"] },
             { "Fn::GetAtt": ["AcceptFollowWriteFunction", "FunctionId"] },
             { "Fn::GetAtt": ["AcceptFollowPublishFunction", "FunctionId"] }
           ]
@@ -703,9 +734,7 @@
         },
         "Environment": {
           "Variables": {
-            "APPSYNC_ENDPOINT": {
-              "Fn::Sub": "https://${AppSyncApiId}.appsync-api.${AWS::Region}.amazonaws.com/graphql"
-            }
+            "APPSYNC_ENDPOINT": "https://nozvrxktpfbj5dvep3mmkz6oga.appsync-api.ap-south-1.amazonaws.com/graphql"
           }
         }
       }
@@ -725,6 +754,9 @@
     }
   },
   "Outputs": {
+    "UsersTableName": {
+      "Value": { "Ref": "UsersTable" }
+    },
     "FollowsTableName": {
       "Value": { "Ref": "FollowsTable" }
     },
