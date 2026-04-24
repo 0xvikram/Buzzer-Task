@@ -1,6 +1,4 @@
-
-#adding a commnet here to redeploy using resolvers
-type User {
+type User @aws_cognito_user_pools @aws_iam {
 
   id: ID!
   username: String!
@@ -8,6 +6,7 @@ type User {
   displayName: String
   avatarUrl: AWSURL
   createdAt: AWSDateTime!
+  
 }
 
 enum FollowStatus {
@@ -65,6 +64,7 @@ type Mutation {
   requestFollow(targetUserId: ID!): Follow @aws_cognito_user_pools
   acceptFollowRequest(requesterId: ID!): Follow @aws_cognito_user_pools
   createNotificationInternal(input: CreateNotificationInput!): Notification @aws_iam
+  upsertUserProfileInternal(input: UpsertUserProfileInput!): User @aws_iam
 }
 
 input CreateNotificationInput {
@@ -72,6 +72,15 @@ input CreateNotificationInput {
   recipientId: ID!
   senderId: ID!
   type: NotificationType!
+}
+
+input UpsertUserProfileInput {
+  id: ID!
+  username: String!
+  email: AWSEmail!
+  displayName: String
+  avatarUrl: AWSURL
+  createdAt: AWSDateTime!
 }
 
 type Subscription {

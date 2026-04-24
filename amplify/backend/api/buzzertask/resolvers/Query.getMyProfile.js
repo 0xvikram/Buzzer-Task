@@ -1,27 +1,9 @@
 import { util } from "@aws-appsync/utils";
 
 export function request(ctx) {
-  const claims = ctx.identity?.claims ?? {};
-  const email = claims.email ?? `${ctx.identity.sub}@unknown.local`;
-  const username =
-    claims.preferred_username ??
-    claims["cognito:username"] ??
-    email.split("@")[0];
-  const displayName = claims.name ?? username;
-
   return {
-    operation: "UpdateItem",
+    operation: "GetItem",
     key: util.dynamodb.toMapValues({ id: ctx.identity.sub }),
-    update: {
-      expression:
-        "SET email = if_not_exists(email, :email), username = if_not_exists(username, :username), displayName = if_not_exists(displayName, :displayName), createdAt = if_not_exists(createdAt, :createdAt)",
-      expressionValues: util.dynamodb.toMapValues({
-        ":email": email,
-        ":username": username,
-        ":displayName": displayName,
-        ":createdAt": util.time.nowISO8601(),
-      }),
-    },
   };
 }
 

@@ -1,6 +1,3 @@
-// Query.getMyFollowings
-// Queries the "byRequester" GSI on the Follows table
-// Returns all users that the caller follows (status = ACCEPTED)
 import { util } from "@aws-appsync/utils";
 
 export function request(ctx) {

@@ -10,9 +10,6 @@ export function request(ctx) {
   const callerId = ctx.identity.sub; // the person accepting (must be the target)
   const { requesterId } = ctx.args;
 
-  // ── Manual auth baked into the key ────────────────────────────────────────
-  // targetId: callerId means only the correct target user can update this item.
-  // Any other caller will get ConditionalCheckFailedException from DDB.
 
   const now = util.time.nowISO8601();
 

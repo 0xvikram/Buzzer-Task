@@ -9,6 +9,12 @@
       "Type": "String",
       "Default": "buzzertask"
     },
+    "AppSyncApiEndpoint": {
+      "Type": "String"
+    },
+    "AuthCognitoUserPoolId": {
+      "Type": "String"
+    },
     "env": {
       "Type": "String",
       "Default": "NONE"
@@ -414,8 +420,15 @@
         "Name": "requestFollowPublish",
         "DataSourceName": { "Fn::GetAtt": ["SqsHttpDataSource", "Name"] },
         "Runtime": { "Name": "APPSYNC_JS", "RuntimeVersion": "1.0.0" },
-        "CodeS3Location": {
-          "Fn::Sub": "s3://${S3DeploymentBucket}/${S3DeploymentRootKey}/resolvers/Mutation.requestFollow.SQS.js"
+        "Code": {
+          "Fn::Sub": [
+            "import { util } from \"@aws-appsync/utils\";\n\nconst queueUrl = \"${queueUrl}\";\n\nexport function request(ctx) {\n  const callerId = ctx.identity.sub;\n  const { targetUserId } = ctx.args;\n  const messageBody = JSON.stringify({\n    recipientId: targetUserId,\n    senderId: callerId,\n    type: \"FOLLOW_REQUEST_RECEIVED\",\n    timestamp: util.time.nowISO8601(),\n  });\n\n  return {\n    method: \"POST\",\n    resourcePath: \"/\",\n    params: {\n      headers: {\n        \"Content-Type\": \"application/x-www-form-urlencoded\",\n      },\n      body: \"Action=SendMessage&QueueUrl=\" + util.urlEncode(queueUrl) + \"&MessageBody=\" + util.urlEncode(messageBody) + \"&Version=2012-11-05\",\n    },\n  };\n}\n\nexport function response(ctx) {\n  if (ctx.error) {\n    util.appendError(ctx.error.message, \"SQSPublishError\");\n  }\n\n  return ctx.prev.result;\n}\n",
+            {
+              "queueUrl": {
+                "Ref": "NotificationQueue"
+              }
+            }
+          ]
         }
       }
     },
@@ -438,8 +451,15 @@
         "Name": "acceptFollowPublish",
         "DataSourceName": { "Fn::GetAtt": ["SqsHttpDataSource", "Name"] },
         "Runtime": { "Name": "APPSYNC_JS", "RuntimeVersion": "1.0.0" },
-        "CodeS3Location": {
-          "Fn::Sub": "s3://${S3DeploymentBucket}/${S3DeploymentRootKey}/resolvers/Mutation.acceptFollowRequest.SQS.js"
+        "Code": {
+          "Fn::Sub": [
+            "import { util } from \"@aws-appsync/utils\";\n\nconst queueUrl = \"${queueUrl}\";\n\nexport function request(ctx) {\n  const callerId = ctx.identity.sub;\n  const { requesterId } = ctx.args;\n  const messageBody = JSON.stringify({\n    recipientId: requesterId,\n    senderId: callerId,\n    type: \"FOLLOW_REQUEST_ACCEPTED\",\n    timestamp: util.time.nowISO8601(),\n  });\n\n  return {\n    method: \"POST\",\n    resourcePath: \"/\",\n    params: {\n      headers: {\n        \"Content-Type\": \"application/x-www-form-urlencoded\",\n      },\n      body: \"Action=SendMessage&QueueUrl=\" + util.urlEncode(queueUrl) + \"&MessageBody=\" + util.urlEncode(messageBody) + \"&Version=2012-11-05\",\n    },\n  };\n}\n\nexport function response(ctx) {\n  if (ctx.error) {\n    util.appendError(ctx.error.message, \"SQSPublishError\");\n  }\n\n  return ctx.prev.result;\n}\n",
+            {
+              "queueUrl": {
+                "Ref": "NotificationQueue"
+              }
+            }
+          ]
         }
       }
     },
@@ -564,6 +584,20 @@
         "Runtime": { "Name": "APPSYNC_JS", "RuntimeVersion": "1.0.0" },
         "CodeS3Location": {
           "Fn::Sub": "s3://${S3DeploymentBucket}/${S3DeploymentRootKey}/resolvers/Mutation.createNotificationInternal.js"
+        }
+      }
+    },
+    "UpsertUserProfileInternalResolver": {
+      "Type": "AWS::AppSync::Resolver",
+      "Properties": {
+        "ApiId": { "Ref": "AppSyncApiId" },
+        "TypeName": "Mutation",
+        "FieldName": "upsertUserProfileInternal",
+        "DataSourceName": { "Fn::GetAtt": ["UsersTableDataSource", "Name"] },
+        "Kind": "UNIT",
+        "Runtime": { "Name": "APPSYNC_JS", "RuntimeVersion": "1.0.0" },
+        "CodeS3Location": {
+          "Fn::Sub": "s3://${S3DeploymentBucket}/${S3DeploymentRootKey}/resolvers/Mutation.upsertUserProfileInternal.js"
         }
       }
     },
@@ -734,10 +768,325 @@
         },
         "Environment": {
           "Variables": {
-            "APPSYNC_ENDPOINT": "https://nozvrxktpfbj5dvep3mmkz6oga.appsync-api.ap-south-1.amazonaws.com/graphql"
+            "APPSYNC_ENDPOINT": {
+              "Ref": "AppSyncApiEndpoint"
+            }
           }
         }
       }
+    },
+    "PostConfirmationTriggerRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ],
+        "Policies": [
+          {
+            "PolicyName": "PostConfirmationTriggerAccess",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "appsync:GraphQL"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:aws:appsync:${AWS::Region}:${AWS::AccountId}:apis/${AppSyncApiId}/*"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "PostConfirmationTriggerLambda": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "FunctionName": {
+          "Fn::Sub": "buzzer-post-confirmation-${AppSyncApiId}-${env}"
+        },
+        "Runtime": "nodejs20.x",
+        "Role": {
+          "Fn::GetAtt": ["PostConfirmationTriggerRole", "Arn"]
+        },
+        "Handler": "index.handler",
+        "Timeout": 30,
+        "Code": {
+          "ZipFile": {
+            "Fn::Join": [
+              "\n",
+              [
+                "const https = require('https');",
+                "const { createHmac, createHash } = require('crypto');",
+                "const endpoint = process.env.APPSYNC_ENDPOINT;",
+                "const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'ap-south-1';",
+                "const query = 'mutation UpsertUserProfileInternal($input: UpsertUserProfileInput!) { upsertUserProfileInternal(input: $input) { id } }';",
+                "const sha256 = (value) => createHash('sha256').update(value, 'utf8').digest('hex');",
+                "const hmac = (key, value) => createHmac('sha256', key).update(value, 'utf8').digest();",
+                "const sign = (secret, dateStamp) => { const kDate = hmac(Buffer.from('AWS4' + secret, 'utf8'), dateStamp); const kRegion = hmac(kDate, region); const kService = hmac(kRegion, 'appsync'); return hmac(kService, 'aws4_request'); };",
+                "const toAmzDate = (date) => date.toISOString().replace(/[:-]|\\.\\d{3}/g, '');",
+                "async function callAppSync(variables) {",
+                "  const url = new URL(endpoint);",
+                "  const body = JSON.stringify({ query, variables });",
+                "  const now = new Date();",
+                "  const amzDate = toAmzDate(now);",
+                "  const dateStamp = amzDate.slice(0, 8);",
+                "  const payloadHash = sha256(body);",
+                "  const headers = { 'content-type': 'application/json', host: url.host, 'x-amz-date': amzDate };",
+                "  if (process.env.AWS_SESSION_TOKEN) headers['x-amz-security-token'] = process.env.AWS_SESSION_TOKEN;",
+                "  const signedHeaderNames = Object.keys(headers).sort();",
+                "  const canonicalHeaders = signedHeaderNames.map((name) => name + ':' + headers[name] + '\\n').join('');",
+                "  const canonicalRequest = ['POST', url.pathname, '', canonicalHeaders, signedHeaderNames.join(';'), payloadHash].join('\\n');",
+                "  const credentialScope = [dateStamp, region, 'appsync', 'aws4_request'].join('/');",
+                "  const stringToSign = ['AWS4-HMAC-SHA256', amzDate, credentialScope, sha256(canonicalRequest)].join('\\n');",
+                "  const signature = createHmac('sha256', sign(process.env.AWS_SECRET_ACCESS_KEY, dateStamp)).update(stringToSign, 'utf8').digest('hex');",
+                "  headers.authorization = 'AWS4-HMAC-SHA256 Credential=' + process.env.AWS_ACCESS_KEY_ID + '/' + credentialScope + ', SignedHeaders=' + signedHeaderNames.join(';') + ', Signature=' + signature;",
+                "  return await new Promise((resolve, reject) => {",
+                "    const req = https.request({ method: 'POST', hostname: url.hostname, path: url.pathname, headers }, (res) => {",
+                "      let response = '';",
+                "      res.on('data', (chunk) => { response += chunk; });",
+                "      res.on('end', () => {",
+                "        try {",
+                "          const parsed = JSON.parse(response || '{}');",
+                "          if (res.statusCode >= 400 || (parsed.errors && parsed.errors.length)) reject(new Error(JSON.stringify(parsed.errors || response)));",
+                "          else resolve(parsed);",
+                "        } catch (error) { reject(error); }",
+                "      });",
+                "    });",
+                "    req.on('error', reject);",
+                "    req.write(body);",
+                "    req.end();",
+                "  });",
+                "}",
+                "exports.handler = async (event) => {",
+                "  const attrs = (event && event.request && event.request.userAttributes) || {};",
+                "  const sub = attrs.sub;",
+                "  const email = attrs.email;",
+                "  if (!sub || !email) throw new Error('Missing required Cognito attributes');",
+                "  const username = attrs.preferred_username || email.split('@')[0];",
+                "  const displayName = attrs.name || username;",
+                "  await callAppSync({ input: { id: sub, email, username, displayName, createdAt: new Date().toISOString() } });",
+                "  return event;",
+                "};"
+              ]
+            ]
+          }
+        },
+        "Environment": {
+          "Variables": {
+            "APPSYNC_ENDPOINT": {
+              "Ref": "AppSyncApiEndpoint"
+            }
+          }
+        }
+      }
+    },
+    "PostConfirmationInvokePermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Ref": "PostConfirmationTriggerLambda"
+        },
+        "Principal": "cognito-idp.amazonaws.com",
+        "SourceArn": {
+          "Fn::Sub": "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${AuthCognitoUserPoolId}"
+        }
+      }
+    },
+    "UserPoolTriggerManagerRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ],
+        "Policies": [
+          {
+            "PolicyName": "UserPoolTriggerManagerAccess",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "cognito-idp:DescribeUserPool",
+                    "cognito-idp:UpdateUserPool"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${AuthCognitoUserPoolId}"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "UserPoolTriggerManagerLambda": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "FunctionName": {
+          "Fn::Sub": "buzzer-userpool-trigger-manager-${AppSyncApiId}-${env}"
+        },
+        "Runtime": "nodejs20.x",
+        "Role": {
+          "Fn::GetAtt": ["UserPoolTriggerManagerRole", "Arn"]
+        },
+        "Handler": "index.handler",
+        "Timeout": 60,
+        "Code": {
+          "ZipFile": {
+            "Fn::Join": [
+              "\n",
+              [
+                "const https = require('https');",
+                "const { createHmac, createHash } = require('crypto');",
+                "const sha256 = (value) => createHash('sha256').update(value, 'utf8').digest('hex');",
+                "const hmac = (key, value) => createHmac('sha256', key).update(value, 'utf8').digest();",
+                "const sign = (secret, dateStamp, region) => { const kDate = hmac(Buffer.from('AWS4' + secret, 'utf8'), dateStamp); const kRegion = hmac(kDate, region); const kService = hmac(kRegion, 'cognito-idp'); return hmac(kService, 'aws4_request'); };",
+                "const toAmzDate = (date) => date.toISOString().replace(/[:-]|\\.\\d{3}/g, '');",
+                "async function callCognito(target, payload, region) {",
+                "  const body = JSON.stringify(payload);",
+                "  const now = new Date();",
+                "  const amzDate = toAmzDate(now);",
+                "  const dateStamp = amzDate.slice(0, 8);",
+                "  const host = `cognito-idp.${region}.amazonaws.com`;",
+                "  const payloadHash = sha256(body);",
+                "  const headers = { 'content-type': 'application/x-amz-json-1.1', host: host, 'x-amz-date': amzDate, 'x-amz-target': target };",
+                "  if (process.env.AWS_SESSION_TOKEN) headers['x-amz-security-token'] = process.env.AWS_SESSION_TOKEN;",
+                "  const signedHeaderNames = Object.keys(headers).sort();",
+                "  const canonicalHeaders = signedHeaderNames.map((name) => name + ':' + headers[name] + '\\n').join('');",
+                "  const canonicalRequest = ['POST', '/', '', canonicalHeaders, signedHeaderNames.join(';'), payloadHash].join('\\n');",
+                "  const credentialScope = [dateStamp, region, 'cognito-idp', 'aws4_request'].join('/');",
+                "  const stringToSign = ['AWS4-HMAC-SHA256', amzDate, credentialScope, sha256(canonicalRequest)].join('\\n');",
+                "  const signature = createHmac('sha256', sign(process.env.AWS_SECRET_ACCESS_KEY, dateStamp, region)).update(stringToSign, 'utf8').digest('hex');",
+                "  headers.authorization = 'AWS4-HMAC-SHA256 Credential=' + process.env.AWS_ACCESS_KEY_ID + '/' + credentialScope + ', SignedHeaders=' + signedHeaderNames.join(';') + ', Signature=' + signature;",
+                "  return await new Promise((resolve, reject) => {",
+                "    const req = https.request({ hostname: host, path: '/', method: 'POST', headers }, (res) => {",
+                "      let raw = '';",
+                "      res.on('data', (chunk) => { raw += chunk; });",
+                "      res.on('end', () => {",
+                "        try {",
+                "          const parsed = raw ? JSON.parse(raw) : {};",
+                "          if (res.statusCode >= 400) reject(new Error(JSON.stringify(parsed)));",
+                "          else resolve(parsed);",
+                "        } catch (error) { reject(error); }",
+                "      });",
+                "    });",
+                "    req.on('error', reject);",
+                "    req.write(body);",
+                "    req.end();",
+                "  });",
+                "}",
+                "const response = async (event, status, reason) => {",
+                "  const body = JSON.stringify({",
+                "    Status: status,",
+                "    Reason: reason || 'See CloudWatch Logs',",
+                "    PhysicalResourceId: event.PhysicalResourceId || event.LogicalResourceId,",
+                "    StackId: event.StackId,",
+                "    RequestId: event.RequestId,",
+                "    LogicalResourceId: event.LogicalResourceId,",
+                "    Data: {},",
+                "  });",
+                "  const url = new URL(event.ResponseURL);",
+                "  await new Promise((resolve, reject) => {",
+                "    const req = https.request({ hostname: url.hostname, path: url.pathname + url.search, method: 'PUT', headers: { 'content-length': Buffer.byteLength(body) } }, (res) => {",
+                "      res.on('data', () => {});",
+                "      res.on('end', resolve);",
+                "    });",
+                "    req.on('error', reject);",
+                "    req.write(body);",
+                "    req.end();",
+                "  });",
+                "};",
+                "exports.handler = async (event) => {",
+                "  const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'ap-south-1';",
+                "  const userPoolId = process.env.USER_POOL_ID;",
+                "  const triggerArn = process.env.POST_CONFIRMATION_TRIGGER_ARN;",
+                "  try {",
+                "    const described = await callCognito('AWSCognitoIdentityProviderService.DescribeUserPool', { UserPoolId: userPoolId }, region);",
+                "    const userPool = ((described || {}).UserPool) || {};",
+                "    const current = (userPool.LambdaConfig) || {};",
+                "    const next = { ...current };",
+                "    if (event.RequestType === 'Delete') {",
+                "      if (next.PostConfirmation === triggerArn) delete next.PostConfirmation;",
+                "    } else {",
+                "      next.PostConfirmation = triggerArn;",
+                "    }",
+                "    const updatePayload = { UserPoolId: userPoolId, LambdaConfig: next };",
+                "    if (Array.isArray(userPool.AutoVerifiedAttributes) && userPool.AutoVerifiedAttributes.length > 0) {",
+                "      updatePayload.AutoVerifiedAttributes = userPool.AutoVerifiedAttributes;",
+                "    }",
+                "    const attrsRequireVerification = (((userPool || {}).UserAttributeUpdateSettings || {}).AttributesRequireVerificationBeforeUpdate) || [];",
+                "    if (Array.isArray(attrsRequireVerification) && attrsRequireVerification.length > 0) {",
+                "      updatePayload.UserAttributeUpdateSettings = { AttributesRequireVerificationBeforeUpdate: attrsRequireVerification };",
+                "    }",
+                "    await callCognito('AWSCognitoIdentityProviderService.UpdateUserPool', updatePayload, region);",
+                "    await response(event, 'SUCCESS');",
+                "  } catch (error) {",
+                "    console.error('Failed to manage Cognito trigger', error);",
+                "    await response(event, 'FAILED', error.message);",
+                "  }",
+                "};"
+              ]
+            ]
+          }
+        },
+        "Environment": {
+          "Variables": {
+            "USER_POOL_ID": {
+              "Ref": "AuthCognitoUserPoolId"
+            },
+            "POST_CONFIRMATION_TRIGGER_ARN": {
+              "Fn::GetAtt": ["PostConfirmationTriggerLambda", "Arn"]
+            }
+          }
+        }
+      }
+    },
+    "ConfigurePostConfirmationTrigger": {
+      "Type": "Custom::ConfigurePostConfirmationTrigger",
+      "Properties": {
+        "ServiceToken": {
+          "Fn::GetAtt": ["UserPoolTriggerManagerLambda", "Arn"]
+        },
+        "UserPoolId": {
+          "Ref": "AuthCognitoUserPoolId"
+        },
+        "TriggerArn": {
+          "Fn::GetAtt": ["PostConfirmationTriggerLambda", "Arn"]
+        }
+      },
+      "DependsOn": [
+        "PostConfirmationInvokePermission"
+      ]
     },
     "NotificationProcessorEventSourceMapping": {
       "Type": "AWS::Lambda::EventSourceMapping",

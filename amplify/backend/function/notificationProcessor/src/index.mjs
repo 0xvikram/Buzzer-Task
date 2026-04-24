@@ -1,26 +1,4 @@
-/**
- * notificationProcessor
- *
- * SQS consumer Lambda. Receives notification events published by AppSync
- * resolvers (requestFollow, acceptFollowRequest) and writes Notification
- * records by calling the AppSync IAM-authenticated mutation
- * `createNotificationInternal`.
- *
- * Why call AppSync instead of writing directly to DynamoDB?
- *   AppSync GraphQL subscriptions (onNotification) are triggered by MUTATIONS,
- *   not by DynamoDB writes. If we wrote directly to DDB, the real-time
- *   subscription would never fire. The IAM mutation path is the only correct
- *   choice to make subscriptions work.
- *
- * Why IAM auth on the mutation?
- *   `createNotificationInternal` is decorated with @aws_iam only — no
- *   @aws_cognito_user_pools. This means NO client holding a Cognito JWT can
- *   call it. Only AWS services with the correct IAM role (this Lambda) can.
- *
- * Idempotency:
- *   Each notification has a UUID `id`. The DynamoDB resolver uses
- *   attribute_not_exists(id) so duplicate SQS deliveries are safe.
- */
+
 
 import { randomUUID } from "crypto";
 import { SignatureV4 } from "@smithy/signature-v4";
@@ -43,10 +21,6 @@ const CREATE_NOTIFICATION_MUTATION = /* GraphQL */ `
   }
 `;
 
-/**
- * Signs and sends a GraphQL request to AppSync using IAM (SigV4) auth.
- * No hardcoded credentials — uses the Lambda execution role automatically.
- */
 async function callAppSyncIAM(query, variables) {
   const url = new URL(APPSYNC_ENDPOINT);
   const body = JSON.stringify({ query, variables });

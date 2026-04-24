@@ -4,12 +4,12 @@ Backend for a social app built with AWS Amplify Gen 1, AppSync, Cognito, DynamoD
 
 ## What is implemented
 
-- Cognito User Pool auth with IAM as secondary AppSync auth mode.
-- Authenticated profile upsert into `BuzzerUsers-<api-id>-<env>` from Cognito claims.
+- AppSync GraphQL API with Cognito User Pools as the default auth mode and IAM as a secondary auth mode.
+- Cognito post-confirmation persistence of user profiles into `BuzzerUsers-<api-id>-<env>`.
 - Custom follow mutations:
   - `requestFollow`
   - `acceptFollowRequest`
-- Custom follow queries:
+- Custom queries:
   - `getMyProfile`
   - `getMyFollowers`
   - `getMyFollowings`
@@ -18,24 +18,180 @@ Backend for a social app built with AWS Amplify Gen 1, AppSync, Cognito, DynamoD
 - Authorized subscriptions:
   - `onFollowAccepted`
   - `onNotification`
-- Async notification flow:
-  - AppSync mutation writes follow state
-  - AppSync publishes an event to SQS
+- Async notification pipeline:
+  - follow mutations write follow state
+  - AppSync publishes notification events to SQS
   - `notificationProcessor` Lambda consumes SQS
   - Lambda calls IAM-only `createNotificationInternal`
-  - AppSync mutation writes notification records and triggers subscriptions
+  - AppSync writes notification records and triggers subscriptions
 
 ## Architecture decisions
 
 - Users are stored in a dedicated DynamoDB table created by the API custom stack. Cognito remains the identity source; DynamoDB is the profile store.
-- Follow relationships use a primary key of `requesterId + targetId` plus two GSIs:
-  - `byTarget` for followers and pending requests received
+- Follow relationships use a composite primary key of `requesterId + targetId` plus two GSIs:
+  - `byTarget` for followers and pending inbound requests
   - `byRequester` for followings
-- Notification creation happens through AppSync, not direct DynamoDB writes, because AppSync subscriptions are mutation-driven.
-- Authorization is enforced in resolver code for:
-  - self-follow prevention
-  - accepting only requests addressed to the caller
-  - subscription scoping to the caller's own identity
+- Notification creation flows through AppSync instead of writing directly to DynamoDB so AppSync subscriptions fire on the internal mutation.
+- Authorization beyond basic authentication is enforced manually in resolver code:
+  - users cannot follow themselves
+  - only the target user can accept a pending follow request
+  - subscription arguments must match the caller's identity
+- The custom CloudFormation stack owns the non-generated infrastructure:
+  - users/follows/notifications tables
+  - SQS queue and DLQ
+  - notification processor Lambda
+  - Cognito post-confirmation trigger Lambda and trigger wiring
+  - AppSync custom resolvers and functions
+
+## Requirement mapping and Q&A (what was done and why)
+
+### 1) AppSync API
+
+**What was required**
+
+- Build AppSync GraphQL API
+- Cognito User Pools as default auth
+- IAM as secondary auth
+
+**What I implemented**
+
+- GraphQL contract in `amplify/backend/api/buzzertask/schema.graphql`
+- Default user-facing operations use `@aws_cognito_user_pools`
+- Internal operations use `@aws_iam` (`createNotificationInternal`, `upsertUserProfileInternal`)
+
+**Why this design**
+
+- Cognito secures client/user operations with JWT tokens.
+- IAM secures internal backend-only writes (Lambda/service calls), preventing direct client abuse.
+
+---
+
+### 2) User authentication and persistence
+
+**What was required**
+
+- Cognito auth
+- Persist profile after registration via Cognito trigger
+
+**What I implemented**
+
+- Cognito User Pool for sign-up/sign-in
+- Post-confirmation trigger Lambda at `amplify/backend/function/postConfirmationTrigger/src/index.mjs`
+- User profile row written to `BuzzerUsers-<api-id>-<env>`
+
+**Why this design**
+
+- Cognito remains the identity source of truth (`sub`, credentials, auth claims).
+- DynamoDB stores app profile data used by GraphQL resolvers.
+- Trigger-based persistence guarantees profile creation regardless of client implementation.
+
+---
+
+### 3) Follow system (custom mutations, queries, subscription)
+
+**What was required**
+
+- Custom follow request and accept mutations
+- My followers and my followings queries
+- Authorized subscription on follow acceptance
+
+**What I implemented**
+
+- Custom mutations: `requestFollow`, `acceptFollowRequest`
+- Queries: `getMyFollowers`, `getMyFollowings`, `getMyPendingFollowRequests`
+- Subscription: `onFollowAccepted(requesterId: ID!)`
+
+**Data model and access patterns**
+
+- Follows table primary key: `requesterId + targetId`
+- GSI `byTarget`: efficient followers and pending inbound requests
+- GSI `byRequester`: efficient followings
+
+**Why this design**
+
+- Access patterns were designed first, then keys/indexes were chosen to avoid scans.
+- Composite keys plus status-based sort/query support both directions efficiently.
+
+**Manual authorization beyond @auth**
+
+- `requestFollow`: blocks self-follow in resolver logic
+- `acceptFollowRequest`: only target user can accept request addressed to them
+- `onFollowAccepted` subscription resolver validates `ctx.identity.sub === args.requesterId`
+
+This satisfies the expectation to enforce business authorization explicitly in code, not only via directives.
+
+---
+
+### 4) Notification system and async processing
+
+**What was required**
+
+- Multipurpose notification table
+- Notify on follow request received and follow accepted
+- Real-time notification subscription with authorization
+- Async pipeline: mutation -> SQS -> Lambda -> notification write
+
+**What I implemented**
+
+- Notification table with typed notifications (`FOLLOW_REQUEST_RECEIVED`, `FOLLOW_REQUEST_ACCEPTED`)
+- Follow mutations publish events to SQS via resolver pipeline steps
+- `notificationProcessor` Lambda consumes queue and creates notifications
+- Real-time subscription: `onNotification(recipientId: ID!)`
+
+**Why Lambda writes via IAM AppSync mutation (not direct DynamoDB)**
+
+- Chosen approach: Lambda calls IAM-only `createNotificationInternal` in AppSync.
+- Reason: AppSync subscriptions are mutation-driven. Writing directly to DynamoDB would bypass AppSync mutation fanout and not emit subscription events.
+- Trade-off: one extra hop (Lambda -> AppSync -> DynamoDB), accepted for correct real-time behavior and centralized policy enforcement.
+
+**Manual authorization beyond @auth**
+
+- `onNotification` subscription resolver validates `ctx.identity.sub === args.recipientId`.
+- Prevents one user from subscribing to another user's notification stream.
+
+---
+
+### 5) Security model summary
+
+- Coarse-grained auth: schema directives (`@aws_cognito_user_pools`, `@aws_iam`)
+- Fine-grained auth: resolver code checks caller identity and ownership rules
+- Internal-only write paths protected with IAM
+- Idempotency on write paths where retries can happen
+
+---
+
+### 6) How this maps to evaluation criteria
+
+- **Schema design**: explicit domain types and custom operations
+- **Data modeling**: DynamoDB keys and GSIs aligned to required query patterns
+- **Auth and security**: mixed Cognito/IAM model with manual resolver authorization
+- **Async processing**: SQS + Lambda pipeline with retry behavior and DLQ support
+- **Code quality**: clear separation of concerns across resolvers, functions, and stack wiring
+- **Documentation**: deploy/test instructions plus architectural rationale and trade-offs
+
+---
+
+### 7) Common interview questions and short answers
+
+**Q: Why not rely only on @auth?**
+
+A: `@auth` handles baseline access mode, but business ownership checks must be explicit. I enforce identity-based rules in resolver code (for example, only recipient can subscribe/accept).
+
+**Q: Why use IAM for internal mutations?**
+
+A: Internal mutations should only be callable by trusted backend services, not end users with Cognito tokens.
+
+**Q: Why SQS instead of creating notifications inline in follow mutations?**
+
+A: Decouples user-facing mutation latency from notification processing, improves resilience/retry behavior, and keeps event processing asynchronous.
+
+**Q: Why call AppSync from Lambda instead of direct DynamoDB writes?**
+
+A: To trigger AppSync subscriptions correctly (mutation-driven fanout) while keeping internal writes IAM-only.
+
+**Q: What is the main trade-off in your notification path?**
+
+A: Additional network hop for Lambda -> AppSync, accepted for correct real-time behavior and centralized policy enforcement.
 
 ## Deploy
 
@@ -45,22 +201,20 @@ Prerequisites:
 - AWS CLI configured
 - Amplify CLI installed
 
-Deploy steps:
+Deploy:
 
 ```bash
 cd Buzzer-Task
 amplify push --allow-destructive-graphql-schema-updates
 ```
 
-If Amplify reports that it will delete model tables (for example `UserTable`), this
-flag is required to proceed. If that table still contains data you need, export or
-back it up before running the command.
+If Amplify reports that it will delete legacy model tables, keep the flag and back up any data you still need before pushing.
 
-The project now relies on:
+The deployment relies on:
 
 - `amplify/backend/api/buzzertask/stacks/CustomResources.json`
 
-That custom stack creates the DynamoDB tables, SQS queue, Lambda consumer, and AppSync resolvers/data sources.
+That stack creates and wires the DynamoDB tables, SQS resources, Lambda functions, Cognito trigger integration, and AppSync custom resources.
 
 ## Test
 
@@ -70,24 +224,26 @@ Run the end-to-end demo:
 node test/run-demo.mjs
 ```
 
-The demo script resolves config in this order:
+The script resolves config in this order:
 
-1. Environment variables (`USER_POOL_ID`, `CLIENT_ID`, `APPSYNC_ENDPOINT`, `AWS_REGION`)
-2. `ui/amplifyconfiguration.json` generated after a successful `amplify push`
+1. Environment variables: `USER_POOL_ID`, `CLIENT_ID`, `APPSYNC_ENDPOINT`, `AWS_REGION`
+2. `ui/amplifyconfiguration.json` generated after `amplify push`
 
-So a normal flow is:
+Normal flow:
 
 ```bash
 amplify push --allow-destructive-graphql-schema-updates
 node test/run-demo.mjs
 ```
 
-The script now fails if:
+The demo validates:
 
-- a mutation returns `null`
-- followers/followings queries return `null`
-- Alice does not appear in Bob's followers
-- Bob does not appear in Alice's followings
+- post-confirmation profile persistence via `getMyProfile`
+- follow request creation
+- follow acceptance
+- followers/followings query correctness
+- asynchronous notification creation for both notification types
+- IAM-only protection on `createNotificationInternal`
 
 ## UI
 
@@ -108,4 +264,4 @@ Pages:
 
 - The OpenSearch bonus task is not implemented.
 - The UI is a thin demo client, not a production frontend.
-- Final validation still requires a real `amplify push` in your AWS account because the custom auth override and custom AppSync stack are deployment-time resources.
+- The automated demo does not currently assert WebSocket subscription delivery; that still needs manual verification against a deployed environment if you want an explicit subscription proof in addition to mutation-driven notification creation.

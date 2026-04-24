@@ -38,3 +38,16 @@ export const createNotificationInternal = /* GraphQL */ `
     }
   }
 `;
+export const upsertUserProfileInternal = /* GraphQL */ `
+  mutation UpsertUserProfileInternal($input: UpsertUserProfileInput!) {
+    upsertUserProfileInternal(input: $input) {
+      id
+      username
+      email
+      displayName
+      avatarUrl
+      createdAt
+      __typename
+    }
+  }
+`;

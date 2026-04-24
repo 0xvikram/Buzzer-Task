@@ -1,16 +1,3 @@
-/**
- * postConfirmationTrigger
- *
- * Cognito Post-Confirmation Lambda trigger.
- * Fires after a user successfully confirms their account (email verification).
- * Persists the user record to DynamoDB so the rest of the system can reference it.
- *
- * Why this approach instead of inline creation:
- *   - Cognito is the source of truth for identity; DynamoDB is the profile store.
- *   - Using a trigger (not a client mutation) means the user record is ALWAYS
- *     created regardless of which client/SDK the user registered through.
- *   - The ConditionExpression makes this idempotent — safe to retry on failure.
- */
 
 import { DynamoDBClient, PutItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall } from "@aws-sdk/util-dynamodb";

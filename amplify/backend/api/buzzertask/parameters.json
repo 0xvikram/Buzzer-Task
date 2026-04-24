@@ -8,5 +8,6 @@
       "Outputs.UserPoolId"
     ]
   },
+  "AppSyncApiEndpoint": "https://nozvrxktpfbj5dvep3mmkz6oga.appsync-api.ap-south-1.amazonaws.com/graphql",
   "AuthModeLastUpdated": "2026-04-22T23:02:22.533Z"
 }
