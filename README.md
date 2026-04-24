@@ -160,17 +160,6 @@ This satisfies the expectation to enforce business authorization explicitly in c
 
 ---
 
-
-- **Schema design**: explicit domain types and custom operations
-- **Data modeling**: DynamoDB keys and GSIs aligned to required query patterns
-- **Auth and security**: mixed Cognito/IAM model with manual resolver authorization
-- **Async processing**: SQS + Lambda pipeline with retry behavior and DLQ support
-- **Code quality**: clear separation of concerns across resolvers, functions, and stack wiring
-- **Documentation**: deploy/test instructions plus architectural rationale and trade-offs
-
----
-
-
 ## Deploy
 
 Prerequisites:
