@@ -160,7 +160,6 @@ This satisfies the expectation to enforce business authorization explicitly in c
 
 ---
 
-### 6) How this maps to evaluation criteria
 
 - **Schema design**: explicit domain types and custom operations
 - **Data modeling**: DynamoDB keys and GSIs aligned to required query patterns
@@ -171,27 +170,6 @@ This satisfies the expectation to enforce business authorization explicitly in c
 
 ---
 
-### 7) Common interview questions and short answers
-
-**Q: Why not rely only on @auth?**
-
-A: `@auth` handles baseline access mode, but business ownership checks must be explicit. I enforce identity-based rules in resolver code (for example, only recipient can subscribe/accept).
-
-**Q: Why use IAM for internal mutations?**
-
-A: Internal mutations should only be callable by trusted backend services, not end users with Cognito tokens.
-
-**Q: Why SQS instead of creating notifications inline in follow mutations?**
-
-A: Decouples user-facing mutation latency from notification processing, improves resilience/retry behavior, and keeps event processing asynchronous.
-
-**Q: Why call AppSync from Lambda instead of direct DynamoDB writes?**
-
-A: To trigger AppSync subscriptions correctly (mutation-driven fanout) while keeping internal writes IAM-only.
-
-**Q: What is the main trade-off in your notification path?**
-
-A: Additional network hop for Lambda -> AppSync, accepted for correct real-time behavior and centralized policy enforcement.
 
 ## Deploy
 
