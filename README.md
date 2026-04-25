@@ -84,6 +84,10 @@ Backend for a social app built with AWS Amplify Gen 1, AppSync, Cognito, DynamoD
 - Cognito remains the identity source of truth (`sub`, credentials, auth claims).
 - DynamoDB stores app profile data used by GraphQL resolvers.
 - Trigger-based persistence guarantees profile creation regardless of client implementation.
+- <img width="797" height="606" alt="image" src="https://github.com/user-attachments/assets/fd6e25ac-ff76-43c7-bde0-8cec7308e895" />
+<img width="629" height="714" alt="image" src="https://github.com/user-attachments/assets/0095ac4d-ff9e-44d3-9c88-deed3912d57c" />
+
+
 
 ---
 
